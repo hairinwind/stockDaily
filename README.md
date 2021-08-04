@@ -1,0 +1,1 @@
+This is the project to convert stock daily quotes to machine learning data
