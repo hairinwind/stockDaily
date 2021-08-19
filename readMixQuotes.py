@@ -21,7 +21,7 @@ def readMixQuoets(file):
     sameTimeQuotes['currentTime'] = pd.to_datetime(sameTimeQuotes['currentTime'])
     return sameTimeQuotes       
 
-def getQUotesByTime(quotes, time):
+def getQuotesByTime(quotes, time):
     """
     get the quotes for specified time
     for example 9:10
@@ -74,7 +74,7 @@ if __name__ == '__main__':
     startTime = datetime(2021, 5, 4, 9, 30)
     endTime = datetime(2021, 5, 4, 16)
     while startTime <= endTime:
-        quotesByTime = getQUotesByTime(quotes, startTime)
+        quotesByTime = getQuotesByTime(quotes, startTime)
         
         symbols = quotesByTime['symbol'].tolist()
         if len(symbols) != len(targetSymbol):
