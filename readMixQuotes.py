@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 import os
 import pandas as pd
 
@@ -13,7 +13,10 @@ filterSymbol = ['AINV', 'BRID', 'BRZU', 'CFBK', 'CHAD', 'CHAU', 'CL=F', 'CLAR', 
 
 targetSymbol = ['AAPL', 'BAC', 'C', 'COKE', 'CORE', 'DAC', 'DPST', 'DRN', 'DUSL', 'DUST', 'ERX', 'ERY', 'FAS', 'FAZ', 'MSFT', 'SOXL', 'SOXS',  'SPXL', 'SPXS', 'TECL', 'TECS', 'TNA', 'TSLA']
 
-targetColumns = []
+targetColumns = ['symbol', 'currentTime', 'regularMarketPrice', 'previousClose', 'regularMarketOpen', 'regularMarketDayHigh', 'regularMarketDayLow', 'regularMarketVolume', 'regularMarketChangePercent', 'postMarketChangePercent', 'preMarketChangePercent', 'averageDailyVolume10Day', 'fiftyDayAverage', 'twoHundredDayAverage']
+print(len(targetColumns))
+marketOpen = time(9, 30)
+marketClose = time(16)
 
 def readMixQuoets(file): 
     dailyQuotes = pd.read_csv(file)
@@ -37,6 +40,24 @@ def getQuotesByTime(quotes, time):
     for missedSymbol in missedSymbol:
         amendedQuote = amendMissedQuotes(missedSymbol, quotes, time)
         oneTimeQuotes = oneTimeQuotes.append(amendedQuote)
+    # filter columns 
+    oneTimeQuotes = oneTimeQuotes[oneTimeQuotes.columns.intersection(targetColumns)]
+    # change columns type
+    oneTimeQuotes = asFloatType(oneTimeQuotes)
+    oneTimeQuotes = fillNan(oneTimeQuotes)
+    oneTimeQuotes.set_index('currentTime')
+    return oneTimeQuotes
+
+def fillNan(df):
+    df['preMarketChangePercent'] = df['preMarketChangePercent'].fillna(0)
+    df['postMarketChangePercent'] = df['postMarketChangePercent'].fillna(0)
+    return df
+
+def asFloatType(oneTimeQuotes):
+    for column in oneTimeQuotes.columns.values:
+        if column == 'currentTime' or column == 'symbol':
+            continue
+        oneTimeQuotes[column] = oneTimeQuotes[column].astype('float')
     return oneTimeQuotes
 
 def amendMissedQuotes(missedSymbol, quotes, time):
@@ -66,24 +87,40 @@ def printSymbol(sameTimeQuotes):
         if capOrAsset >= 1000000000 and averageDailyVolume10Day >= 1000000: 
             print(row['symbol'], capOrAsset)
 
+def readMarketTimeQuotes(quotes):
+    # startTime = datetime(2021, 5, 4, 9, 30)
+    # endTime = datetime(2021, 5, 4, 16)
+    quoteDate = datetime(2021,5,4)
+    startTime = datetime.combine(quoteDate, marketOpen)
+    endTime = datetime.combine(quoteDate, marketClose)
+    
+    quotesByTime_df = None
+    while startTime <= endTime:
+        quotesByTime = getQuotesByTime(quotes, startTime)
+        symbols = quotesByTime['symbol'].tolist()
+        if type(quotesByTime_df) == 'None':
+            quotesByTime_df = quotesByTime
+        else:
+            quotesByTime_df = pd.concat([quotesByTime_df, quotesByTime])
+        if len(symbols) != len(targetSymbol):
+            print("quote size not correct by time: ", startTime, len(symbols))
+            print([symbol for symbol in targetSymbol if symbol not in symbols])
+        if startTime == datetime(2021, 5, 4, 9, 30):
+            print(quotesByTime.head())
+            print(quotesByTime.info(verbose=True))
+        startTime = startTime + timedelta(minutes=5)
+    quotesByTime_df.to_csv("~/Downloads/test.csv", index=False)
+
 if __name__ == '__main__':
     csvPath = "/home/yao/Downloads/quotes_csv"
     csvFile = os.path.join(csvPath, "stock_20210504.csv")
     quotes = readMixQuoets(csvFile)
+    readMarketTimeQuotes(quotes)
 
-    startTime = datetime(2021, 5, 4, 9, 30)
-    endTime = datetime(2021, 5, 4, 16)
-    while startTime <= endTime:
-        quotesByTime = getQuotesByTime(quotes, startTime)
-        
-        symbols = quotesByTime['symbol'].tolist()
-        if len(symbols) != len(targetSymbol):
-            print("quote size not correct by time: ", startTime, len(symbols))
-            print([symbol for symbol in targetSymbol if symbol not in symbols])
-
-        if startTime == datetime(2021, 5, 4, 9, 30):
-            print(quotesByTime)
-        
-        startTime = startTime + timedelta(minutes=5)
+    df = pd.read_csv('~/Downloads/test.csv')
+    df['currentTime'] = pd.to_datetime(df['currentTime'])
+    df.set_index("currentTime")
+    print(df.head())
+    print(df.info(verbose=True))
 
     

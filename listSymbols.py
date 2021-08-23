@@ -13,3 +13,4 @@ if __name__ == "__main__":
     path = "/home/yao/Downloads/quotes_json"
     symbolSet = listSymbols(path)
     print(symbolSet)
+    print(len(symbolSet))
