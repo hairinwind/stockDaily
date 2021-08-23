@@ -44,6 +44,8 @@ def getQuotesByTime(quotes, time):
     oneTimeQuotes = oneTimeQuotes[oneTimeQuotes.columns.intersection(targetColumns)]
     # change columns type
     oneTimeQuotes = asFloatType(oneTimeQuotes)
+    # set to the same time
+    oneTimeQuotes['currentTime'] = time
     oneTimeQuotes = fillNan(oneTimeQuotes)
     oneTimeQuotes.set_index('currentTime')
     return oneTimeQuotes
