@@ -1,30 +1,25 @@
 from datetime import datetime, timedelta, time
+from globalSettings import targetIndex, rawQuotesPath
+from listSymbols import listSymbols
+
 import os
 import pandas as pd
-
-filterSymbol = ['AINV', 'BRID', 'BRZU', 'CFBK', 'CHAD', 'CHAU', 'CL=F', 'CLAR', 'CURE', 'CWEB', 'DFEN', 'DMRC', 'DPK', 'DRIP', 'DZK', 'EDC', 'EDZ', 'ERIE', 'EURL', 'EURUSD=X', 'FRPT', 'GASL', 'GC=F', 'GLOB', 'GUSH', 'GWGH', 'HFFG', 'INDL', 'INS', 'JAGX', 'JDST', 'JYNT', 'KNOW', 'LABD', 'LBJ', 'LFVN', 'LRN', 'MIDU', 'MIDZ', 'MSON', 'NAIL', 'NOA', 'NSSC', 'NSTG', 'PAR', 'PAYS', 'PDVW', 'PILL', 'PNRG', 'QQQE', 'RETL', 'RFL', 'RUSL', 'SHSP','SPUU', 'TMV', 'TPB', 'TPOR', 'TYD', 'TYO',  'UBOT', 'UTSL', 'WDRW', 'WK', ]
-#  'CLAR', 'CURE', 'DFEN', 'DMRC', ,'YANG'
-
-# to watch 
-# VGK
-# gold
-# ^TNX 10 年期长期利率 和 bond 票面价值成反比
-# use KO to replace coke
-
-targetSymbol = ['AAPL', 'BAC', 'C', 'COKE', 'CORE', 'DAC', 'DPST', 'DRN', 'DUSL', 'DUST', 'ERX', 'ERY', 'FAS', 'FAZ', 'MSFT', 'SOXL', 'SOXS',  'SPXL', 'SPXS', 'TECL', 'TECS', 'TNA', 'TSLA']
-targetIndex = ['^DJI', '^GSPC', '^IXIC ', '^NYA', '^RUT', '^TNX', '^VIX']
 
 targetColumns = ['symbol', 'currentTime', 'regularMarketPrice', 'previousClose', 'regularMarketOpen', 'regularMarketDayHigh', 'regularMarketDayLow', 'regularMarketVolume', 'regularMarketChangePercent', 'postMarketChangePercent', 'preMarketChangePercent', 'averageDailyVolume10Day', 'fiftyDayAverage', 'twoHundredDayAverage']
 targetIndexColumns = ['averageDailyVolume10Day', 'currentTime', 'fiftyDayAverage', 'previousClose', 'regularMarketChangePercent', 'regularMarketDayHigh', 'regularMarketDayLow', 'regularMarketOpen', 'regularMarketPrice', 'regularMarketVolume', 'symbol', 'twoHundredDayAverage']
 
-marketOpen = time(13, 30)
-marketClose = time(20)
+marketOpen = time(9, 30)
+marketClose = time(16)
+
+allSymbols = listSymbols(rawQuotesPath)
+targetStock = [s for s in allSymbols if s not in targetIndex]
 
 """
 filter symbol and columns
 """
 def readMixIndex(file): 
     dailyQuotes = pd.read_csv(file)
+    print(dailyQuotes['symbol'])
     sameTimeQuotes = dailyQuotes[dailyQuotes['symbol'].isin(targetIndex)]
     sameTimeQuotes['currentTime'] = pd.to_datetime(sameTimeQuotes['currentTime'])
     sameTimeQuotes = sameTimeQuotes[sameTimeQuotes.columns.intersection(targetIndexColumns)]
@@ -32,7 +27,7 @@ def readMixIndex(file):
 
 def readMixQuoets(file): 
     dailyQuotes = pd.read_csv(file)
-    sameTimeQuotes = dailyQuotes[dailyQuotes['symbol'].isin(targetSymbol)]
+    sameTimeQuotes = dailyQuotes[~dailyQuotes['symbol'].isin(targetIndex)]
     sameTimeQuotes['currentTime'] = pd.to_datetime(sameTimeQuotes['currentTime'])
     sameTimeQuotes = sameTimeQuotes[sameTimeQuotes.columns.intersection(targetColumns)]
     return sameTimeQuotes       
@@ -49,6 +44,7 @@ def getQuotesByTime(quotes, time):
     oneTimeQuotes = quotes[(quotes['currentTime']>=startTime) & (quotes['currentTime']<endTime)]
     #  amend missed quotes with previous quote
     oneTimeQuotes = oneTimeQuotes.drop_duplicates(subset=['symbol'])
+    targetSymbol = getTargetSymbol(oneTimeQuotes)
     missedSymbol = [symbol for symbol in targetSymbol if symbol not in oneTimeQuotes['symbol'].tolist()]
     for missedSymbol in missedSymbol:
         amendedQuote = amendMissedQuotes(missedSymbol, quotes, time)
@@ -60,6 +56,13 @@ def getQuotesByTime(quotes, time):
     oneTimeQuotes = fillNan(oneTimeQuotes)
     oneTimeQuotes.set_index('currentTime')
     return oneTimeQuotes
+
+def getTargetSymbol(oneTimeQuotes):
+    anySymbol = oneTimeQuotes['symbol'].iloc[0]
+    if anySymbol in targetIndex: # it is index symbol, return index symbol list
+        return targetIndex
+    else:
+        return targetStock
 
 def fillNan(df):
     if 'preMarketChangePercent' in df:
@@ -83,24 +86,24 @@ def amendMissedQuotes(missedSymbol, quotes, time):
         result = resultQuotes.head(1)
     return result
 
-def printSymbol(sameTimeQuotes):
-    """ 
-    This is a help function
-    filter the symbol not qualified 
-    if the symbol assets or marketCap is too small 
-    or daily volume is too small, it is not qualified
-    """
-    for index, row in sameTimeQuotes.iterrows():
-        capOrAsset = 0
-        averageDailyVolume10Day = 0
-        if row['marketCap'] != '{}':
-            capOrAsset = int(float(row['marketCap']))
-        if row['totalAssets'] != '{}':
-            capOrAsset = int(float(row['totalAssets']))
-        if row['averageDailyVolume10Day'] != '{}' :
-            averageDailyVolume10Day = int(float(row['averageDailyVolume10Day']))
-        if capOrAsset >= 1000000000 and averageDailyVolume10Day >= 1000000: 
-            print(row['symbol'], capOrAsset)
+# def printSymbol(sameTimeQuotes):
+#     """ 
+#     This is a help function
+#     filter the symbol not qualified 
+#     if the symbol assets or marketCap is too small 
+#     or daily volume is too small, it is not qualified
+#     """
+#     for index, row in sameTimeQuotes.iterrows():
+#         capOrAsset = 0
+#         averageDailyVolume10Day = 0
+#         if row['marketCap'] != '{}':
+#             capOrAsset = int(float(row['marketCap']))
+#         if row['totalAssets'] != '{}':
+#             capOrAsset = int(float(row['totalAssets']))
+#         if row['averageDailyVolume10Day'] != '{}' :
+#             averageDailyVolume10Day = int(float(row['averageDailyVolume10Day']))
+#         if capOrAsset >= 1000000000 and averageDailyVolume10Day >= 1000000: 
+#             print(row['symbol'], capOrAsset)
 
 def alignMarketTimeQuotes(quotes):
     quoteDate = quotes['currentTime'][1]

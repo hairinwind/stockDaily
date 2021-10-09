@@ -6,11 +6,11 @@ easy to feed data to machine learning
 import os
 import pandas as pd
 from datetime import date, timedelta
+from globalSettings import rawQuotesPath, targetIndex
 from stock_data_reader import StockDataReader
 
 from listSymbols import listSymbols
 
-path = "/home/yao/Downloads/quotes_json"
 targetPath = "/home/yao/Downloads/quotes_csv"
 
 # https://www.nyse.com/markets/hours-calendars
@@ -34,7 +34,7 @@ def isNoTradingDate(date1):
     return False
 
 def mixQuotes(symbolSet, startDate, endDate):
-    stockSymbolSet = [symbol for symbol in symbolSet if not symbol.startswith("^")]
+    stockSymbolSet = [symbol for symbol in symbolSet if symbol not in targetIndex]
     periodRange = pd.period_range(start=startDate, end=endDate, freq='D')
     for day in periodRange:
         date1 = date(day.year, day.month, day.day)
@@ -43,7 +43,7 @@ def mixQuotes(symbolSet, startDate, endDate):
             generateMixQuoteFiles(stockSymbolSet, date1Str, "stock")
 
 def mixIndex(symbolSet, startDate, endDate):
-    indexSymbolSet = [symbol for symbol in symbolSet if symbol.startswith("^")]
+    indexSymbolSet = [symbol for symbol in symbolSet if symbol in targetIndex]
     periodRange = pd.period_range(start=startDate, end=endDate, freq='D')
     for day in periodRange:
         date1 = date(day.year, day.month, day.day)
@@ -56,7 +56,7 @@ def generateMixQuoteFiles(symbolSet, dateStr, targetFilePrefix):
     quotes_df = pd.DataFrame({'A' : []}) # empty dataframe
     for symbol in symbolSet:
         fileName = symbol + "_" + dateStr + ".json"
-        fullPathFileName = os.path.join(path, fileName)
+        fullPathFileName = os.path.join(rawQuotesPath, fileName)
         if not os.path.isfile(fullPathFileName):
             print("file not exist: ", fullPathFileName)
             continue
@@ -72,10 +72,10 @@ def generateMixQuoteFiles(symbolSet, dateStr, targetFilePrefix):
     quotes_df.to_csv(targetFile, index=False)
 
 if __name__ == '__main__':
-    startDate = date(2021, 9, 8)
-    endDate = date(2021, 9, 17)
+    startDate = date(2021, 9, 18)
+    endDate = date(2021, 10, 1)
     # endDate = date(2021, 5, 4)
-    symbolSet = listSymbols(path)
+    symbolSet = listSymbols(rawQuotesPath)
     # print("symbol size: ", len(symbolSet))
     mixQuotes(symbolSet, startDate, endDate)
     mixIndex(symbolSet, startDate, endDate) 

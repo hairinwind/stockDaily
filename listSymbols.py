@@ -1,3 +1,4 @@
+from globalSettings import rawQuotesPath
 import os
 
 def listSymbols(path): 
@@ -10,7 +11,6 @@ def listSymbols(path):
         
 
 if __name__ == "__main__":
-    path = "/home/yao/Downloads/quotes_json"
-    symbolSet = listSymbols(path)
+    symbolSet = listSymbols(rawQuotesPath)
     print(symbolSet)
     print(len(symbolSet))
