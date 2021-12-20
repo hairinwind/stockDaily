@@ -8,8 +8,8 @@ import pandas as pd
 targetColumns = ['symbol', 'currentTime', 'regularMarketPrice', 'previousClose', 'regularMarketOpen', 'regularMarketDayHigh', 'regularMarketDayLow', 'regularMarketVolume', 'regularMarketChangePercent', 'postMarketChangePercent', 'preMarketChangePercent', 'averageDailyVolume10Day', 'fiftyDayAverage', 'twoHundredDayAverage']
 targetIndexColumns = ['averageDailyVolume10Day', 'currentTime', 'fiftyDayAverage', 'previousClose', 'regularMarketChangePercent', 'regularMarketDayHigh', 'regularMarketDayLow', 'regularMarketOpen', 'regularMarketPrice', 'regularMarketVolume', 'symbol', 'twoHundredDayAverage']
 
-marketOpen = time(9, 30)
-marketClose = time(16)
+marketOpen = time(9, 45)
+marketClose = time(16, 45)
 
 allSymbols = listSymbols(rawQuotesPath)
 targetStock = [s for s in allSymbols if s not in targetIndex]

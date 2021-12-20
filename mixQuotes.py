@@ -72,9 +72,8 @@ def generateMixQuoteFiles(symbolSet, dateStr, targetFilePrefix):
     quotes_df.to_csv(targetFile, index=False)
 
 if __name__ == '__main__':
-    startDate = date(2021, 9, 18)
-    endDate = date(2021, 10, 1)
-    # endDate = date(2021, 5, 4)
+    startDate = date(2021, 10, 4)
+    endDate = date(2021, 12, 17)
     symbolSet = listSymbols(rawQuotesPath)
     # print("symbol size: ", len(symbolSet))
     mixQuotes(symbolSet, startDate, endDate)
