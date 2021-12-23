@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta, time
-from globalSettings import targetIndex, rawQuotesPath
+from globalSettings import isNoTradingDate, targetIndex, rawQuotesPath, quotesCsvPath, quotesOnedayPath, getDateFromFileName
 from listSymbols import listSymbols
 
 import os
 import pandas as pd
+import numpy as np
 
 targetColumns = ['symbol', 'currentTime', 'regularMarketPrice', 'previousClose', 'regularMarketOpen', 'regularMarketDayHigh', 'regularMarketDayLow', 'regularMarketVolume', 'regularMarketChangePercent', 'postMarketChangePercent', 'preMarketChangePercent', 'averageDailyVolume10Day', 'fiftyDayAverage', 'twoHundredDayAverage']
 targetIndexColumns = ['averageDailyVolume10Day', 'currentTime', 'fiftyDayAverage', 'previousClose', 'regularMarketChangePercent', 'regularMarketDayHigh', 'regularMarketDayLow', 'regularMarketOpen', 'regularMarketPrice', 'regularMarketVolume', 'symbol', 'twoHundredDayAverage']
@@ -11,26 +12,29 @@ targetIndexColumns = ['averageDailyVolume10Day', 'currentTime', 'fiftyDayAverage
 marketOpen = time(9, 45)
 marketClose = time(16, 45)
 
-allSymbols = listSymbols(rawQuotesPath)
-targetStock = [s for s in allSymbols if s not in targetIndex]
+targetSymbol = listSymbols(rawQuotesPath)
 
 """
 filter symbol and columns
 """
 def readMixIndex(file): 
-    dailyQuotes = pd.read_csv(file)
-    print(dailyQuotes['symbol'])
-    sameTimeQuotes = dailyQuotes[dailyQuotes['symbol'].isin(targetIndex)]
-    sameTimeQuotes['currentTime'] = pd.to_datetime(sameTimeQuotes['currentTime'])
-    sameTimeQuotes = sameTimeQuotes[sameTimeQuotes.columns.intersection(targetIndexColumns)]
-    return sameTimeQuotes
+    if os.path.isfile(file): 
+        dailyQuotes = pd.read_csv(file)
+        # print(dailyQuotes['symbol'])
+        sameTimeQuotes = dailyQuotes[dailyQuotes['symbol'].isin(targetIndex)]
+        sameTimeQuotes['currentTime'] = pd.to_datetime(sameTimeQuotes['currentTime'], format="%Y-%m-%d %H:%M")
+        sameTimeQuotes = sameTimeQuotes[sameTimeQuotes.columns.intersection(targetIndexColumns)]
+        sameTimeQuotes['preMarketChangePercent'] = 0
+        sameTimeQuotes['postMarketChangePercent'] = 0
+        return sameTimeQuotes
 
-def readMixQuoets(file): 
-    dailyQuotes = pd.read_csv(file)
-    sameTimeQuotes = dailyQuotes[~dailyQuotes['symbol'].isin(targetIndex)]
-    sameTimeQuotes['currentTime'] = pd.to_datetime(sameTimeQuotes['currentTime'])
-    sameTimeQuotes = sameTimeQuotes[sameTimeQuotes.columns.intersection(targetColumns)]
-    return sameTimeQuotes       
+def readMixQuotes(file): 
+    if os.path.isfile(file):
+        dailyQuotes = pd.read_csv(file)
+        sameTimeQuotes = dailyQuotes[~dailyQuotes['symbol'].isin(targetIndex)]
+        sameTimeQuotes['currentTime'] = pd.to_datetime(sameTimeQuotes['currentTime'], format="%Y-%m-%d %H:%M")
+        sameTimeQuotes = sameTimeQuotes[sameTimeQuotes.columns.intersection(targetColumns)]
+        return sameTimeQuotes       
 
 def getQuotesByTime(quotes, time):
     """
@@ -44,7 +48,6 @@ def getQuotesByTime(quotes, time):
     oneTimeQuotes = quotes[(quotes['currentTime']>=startTime) & (quotes['currentTime']<endTime)]
     #  amend missed quotes with previous quote
     oneTimeQuotes = oneTimeQuotes.drop_duplicates(subset=['symbol'])
-    targetSymbol = getTargetSymbol(oneTimeQuotes)
     missedSymbol = [symbol for symbol in targetSymbol if symbol not in oneTimeQuotes['symbol'].tolist()]
     for missedSymbol in missedSymbol:
         amendedQuote = amendMissedQuotes(missedSymbol, quotes, time)
@@ -57,13 +60,6 @@ def getQuotesByTime(quotes, time):
     oneTimeQuotes.set_index('currentTime')
     return oneTimeQuotes
 
-def getTargetSymbol(oneTimeQuotes):
-    anySymbol = oneTimeQuotes['symbol'].iloc[0]
-    if anySymbol in targetIndex: # it is index symbol, return index symbol list
-        return targetIndex
-    else:
-        return targetStock
-
 def fillNan(df):
     if 'preMarketChangePercent' in df:
         df['preMarketChangePercent'] = df['preMarketChangePercent'].fillna(0)
@@ -75,7 +71,9 @@ def asFloatType(oneTimeQuotes):
     for column in oneTimeQuotes.columns.values:
         if column == 'currentTime' or column == 'symbol':
             continue
-        oneTimeQuotes[column] = oneTimeQuotes[column].astype('float')
+        # the command below convert the data to numeric, if error happens, fill it with 0
+        oneTimeQuotes[column] = pd.to_numeric(oneTimeQuotes[column], errors='coerce').fillna(0)
+
     return oneTimeQuotes
 
 def amendMissedQuotes(missedSymbol, quotes, time):
@@ -84,7 +82,40 @@ def amendMissedQuotes(missedSymbol, quotes, time):
     if result.empty:
         resultQuotes = quotes[(quotes['symbol'] == missedSymbol) & (quotes['currentTime'] >time)]
         result = resultQuotes.head(1)
+    if result.empty:
+        # don't have data in today's file, get the data from previous file
+        result = getDataFromPreviousDay(missedSymbol, time)
+        if result is None:
+            data = [{'averageDailyVolume10Day': 0,'fiftyDayAverage': 0,'postMarketChangePercent': 0,'preMarketChangePercent': 0,
+                    'previousClose': 0,'regularMarketChangePercent': 0,'regularMarketDayHigh': 0,'regularMarketDayLow': 0,'regularMarketOpen': 0,
+                    'regularMarketPrice': 0,'regularMarketVolume': 0,'symbol': missedSymbol,'twoHundredDayAverage': 0, 'currentTime':time}]
+            result = pd.DataFrame(data)
+        result['currentTime'] = time
     return result
+
+def getDataFromPreviousDay(symbol, time):
+    previousTradingDay = getPreviousTradingDay(time)
+    dateStr = previousTradingDay.strftime('%Y%m%d')
+    previousDataFile = getTargetFile(dateStr)
+    if os.path.isfile(previousDataFile):
+        df = pd.read_csv(previousDataFile)
+        return df.loc[df['symbol']==symbol].tail(1)
+    else: 
+        return None
+
+def getPreviousTradingDay(date):
+    previousDay = date - timedelta(days=1)
+    if not isNoTradingDate(previousDay):
+        return previousDay
+    previousDay = date - timedelta(days=1)
+    if not isNoTradingDate(previousDay):
+        return previousDay
+    previousDay = date - timedelta(days=1)
+    if not isNoTradingDate(previousDay):
+        return previousDay
+    previousDay = date - timedelta(days=1)
+    return previousDay
+    
 
 # def printSymbol(sameTimeQuotes):
 #     """ 
@@ -106,7 +137,7 @@ def amendMissedQuotes(missedSymbol, quotes, time):
 #             print(row['symbol'], capOrAsset)
 
 def alignMarketTimeQuotes(quotes):
-    quoteDate = quotes['currentTime'][1]
+    quoteDate = toDateTime(quotes['currentTime'].values[0])
     startTime = datetime.combine(quoteDate, marketOpen)
     endTime = datetime.combine(quoteDate, marketClose)
     
@@ -117,7 +148,7 @@ def alignMarketTimeQuotes(quotes):
         if type(quotesByTime_df) == 'None':
             quotesByTime_df = quotesByTime
         else:
-            quotesByTime_df = pd.concat([quotesByTime_df, quotesByTime])
+            quotesByTime_df = pd.concat([quotesByTime_df, quotesByTime], sort=True)
         # if len(symbols) != len(targetSymbol):
         #     print("quote size not correct by time: ", startTime, len(symbols))
         #     print([symbol for symbol in targetSymbol if symbol not in symbols])
@@ -127,33 +158,64 @@ def alignMarketTimeQuotes(quotes):
         startTime = startTime + timedelta(minutes=5)
     return quotesByTime_df
 
+def toDateTime(dt64):
+    unix_epoch = np.datetime64(0, 's')
+    one_second = np.timedelta64(1, 's')
+    seconds_since_epoch = (dt64 - unix_epoch) / one_second
+    return datetime.utcfromtimestamp(seconds_since_epoch)
+
 """
 This is to read the csv files generated by mixQuotes.py
 and align them by the time
 then save it to csv
 """
 def convertData(csvPath): 
+    fileDates = set()
     for file in os.listdir(csvPath):
-        if file.startswith('stock') and file.endswith(".csv"):
-            csvFile = os.path.join(csvPath, file)
-            print("processing ", csvFile)
-            quotes = readMixQuoets(csvFile)
-            quotesByTime_df =alignMarketTimeQuotes(quotes)
-            quoteDate = quotes['currentTime'][1]
-            dateStr = quoteDate.strftime("%Y-%m-%d")
-            quotesByTime_df.to_csv("~/Downloads/quotes_oneday_data/stock_"+ dateStr +".csv", index=False)
-        if file.startswith('index') and file.endswith(".csv"):
-            csvFile = os.path.join(csvPath, file)
-            print("processing ", csvFile)
-            quotes = readMixIndex(csvFile)
-            quotesByTime_df =alignMarketTimeQuotes(quotes)
-            quoteDate = quotes['currentTime'][1]
-            dateStr = quoteDate.strftime("%Y-%m-%d")
-            quotesByTime_df.to_csv("~/Downloads/quotes_oneday_data/index_"+ dateStr +".csv", index=False)
+        date = getDateFromFileName(file, dateRegex=r'\d{4}\d{2}\d{2}')
+        if date != None:
+            fileDates.add(date)
+    
+    for date in sorted(fileDates):
+        print(f'processing {date}')
+        indexFile = 'index_' + date + '.csv'
+        indexQuotes = readMixIndex(os.path.join(csvPath, indexFile))
+        stockFile = 'stock_' + date + '.csv'
+        stockQuotes = readMixQuotes(os.path.join(csvPath, stockFile))
+        # mix index with stock
+        quotes = pd.concat([stockQuotes, indexQuotes], sort=True)
+        # align time
+        quotesByTime_df =alignMarketTimeQuotes(quotes)
+
+        targetFile = getTargetFile(date)
+        print(len(quotesByTime_df))
+        print(f'save to file {targetFile}')
+        quotesByTime_df.to_csv(targetFile, index=False)
+
+def getTargetFile(date):
+    return os.path.join(quotesOnedayPath, "data_"+ date +".csv")
+
+        # if file.startswith('stock') and file.endswith(".csv"):
+        #     csvFile = os.path.join(csvPath, file)
+        #     print("processing ", csvFile)
+        #     quotes = readMixQuoets(csvFile)
+        #     quotesByTime_df =alignMarketTimeQuotes(quotes)
+        #     quoteDate = quotes['currentTime'][1]
+        #     dateStr = quoteDate.strftime("%Y-%m-%d")
+        #     targetFile = os.path.join(quotesOnedayPath, "stock"+ dateStr +".csv")
+        #     quotesByTime_df.to_csv(targetFile, index=False)
+        # if file.startswith('index') and file.endswith(".csv"):
+        #     csvFile = os.path.join(csvPath, file)
+        #     print("processing ", csvFile)
+        #     quotes = readMixIndex(csvFile)
+        #     quotesByTime_df =alignMarketTimeQuotes(quotes)
+        #     quoteDate = quotes['currentTime'][1]
+        #     dateStr = quoteDate.strftime("%Y-%m-%d")
+        #     targetFile = os.path.join(quotesOnedayPath, "index_"+ dateStr +".csv")
+        #     quotesByTime_df.to_csv(targetFile, index=False)
 
 if __name__ == '__main__':
-    csvPath = "/home/yao/Downloads/quotes_csv"
-    convertData(csvPath)
+    convertData(quotesCsvPath)
 
     # df = pd.read_csv('~/Downloads/quotes_oneday_data/stock_20210504.csv')
     # df['currentTime'] = pd.to_datetime(df['currentTime'])

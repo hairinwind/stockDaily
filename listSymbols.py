@@ -6,7 +6,7 @@ def listSymbols(path):
     symbolSet = set()
     for file in files:
         symbol = file.split("_")[0]
-        symbolSet.add(symbol)
+        symbolSet.add(symbol.strip())
     return sorted(symbolSet)
         
 

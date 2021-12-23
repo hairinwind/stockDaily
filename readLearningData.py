@@ -148,10 +148,7 @@ def test2(getDataFileName, quoteDate):
             print(dataItem)
     print(data1[0])
 
-def findStartDateAndEndDate():
-    files = os.listdir(csvPath)
-    dates = [getDateFromFileName(f) for f in files]
-    return min(dates), max(dates)
+
 
 
 if __name__ == '__main__':

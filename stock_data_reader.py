@@ -12,26 +12,41 @@ class StockDataReader:
         self.previousQuote = {}
 
     def read(self, file): 
+        print(f'reading {file}')
         f = open(file, "r")
         lines = f.readlines()
-        quotes = list(map(self.parseLine, lines))
+        quotes = list(filter(None,map(self.parseLine, lines)))
         # print(len(quotes))
-        # print(json.dumps(quotes[0], indent=4))
         return quotes
         
     def parseLine(self, line): 
         try: 
             lineJson = json.loads(line)
-            # print(lineJson)
-            quote = {}
+            if len(lineJson) == 66: # some quotes return 66 fields and miss trailingPE
+                lineJson['trailingPE'] = 0
+            if len(lineJson) != 67:
+                print(f"{lineJson['symbol']} has {len(lineJson)} columns, which cannot be processed")
+                return None
+        except BaseException as err:
+            print(f"cannot parse lines {line}")
+            return None 
+            
+        quote = {}
+        try:
             for key in lineJson.keys(): 
                 if type(lineJson[key]) is dict and 'raw' in lineJson[key].keys(): 
                     quote[key] = lineJson[key]['raw']
                 else: 
                     quote[key] = lineJson[key]
             self.previousQuote = quote
-        except:
-            quote = self.previousQuote
-            # print("cannot parse line to json ", line, " is dict", isinstance(lineJson, dict)) 
+        except BaseException as err:
+            print(err)
+            print(line)
+            print(lineJson)
+            print("===")
+        
         return quote
 
+if __name__ == '__main__':
+    reader = StockDataReader()
+    reader.read('H:/quotes_process/tar/pyahoo/quotes/AAPL_20211005.json')
