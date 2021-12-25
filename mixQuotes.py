@@ -46,7 +46,7 @@ def generateMixQuoteFiles(symbolSet, dateStr, targetFilePrefix):
             df.to_csv(targetFile, index=False)
     
 def mix():
-    startDate, endDate = findStartDateAndEndDate(rawQuotesPath, r'\d{8}')
+    startDate, endDate = findStartDateAndEndDate(rawQuotesPath)
     symbolSet = listSymbols(rawQuotesPath)
 
     # startDate, endDate = '20211005','20211006'
