@@ -1,13 +1,17 @@
-from datetime import date
-from finta import TA
-from globalSettings import mlDataPath, quotesOnedayPath, addOneDay
-from mixQuotes import isNoTradingDate
-import datetime
+from datetime import date, datetime, timedelta
 import numpy as np
 import os
 import pandas as pd
-import re
-import pickle
+
+defaultDatePattern = '%Y%m%d'
+quotesOnedayPath = "/home/yao/myworkspace/myPython/mymuzero/data/quotes_oneday_data"
+
+## input argument day: 20210831
+## returns 20210901
+def addOneDay(day):
+    day1 = datetime.strptime(day, defaultDatePattern)
+    nextDay = day1 + timedelta(days=1)
+    return datetime.strftime(nextDay, defaultDatePattern)
 
 class LearningDataReader: 
 

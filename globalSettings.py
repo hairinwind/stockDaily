@@ -58,10 +58,4 @@ def saveOrAppendCsv(df, csvFile):
     else:
         df.to_csv(csvFile, index=False)
 
-## input argument day: 20210831
-## returns 20210901
-def addOneDay(day):
-    day1 = datetime.strptime(day, defaultDatePattern)
-    nextDay = day1 + timedelta(days=1)
-    return datetime.strftime(nextDay, defaultDatePattern)
     
