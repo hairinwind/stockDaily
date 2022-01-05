@@ -1,7 +1,5 @@
-from datetime import date, datetime, timedelta
-
+from datetime import date, time
 import os
-import re
 
 defaultDatePattern = '%Y%m%d'
 
@@ -31,31 +29,24 @@ holidays = [
     date(2021,7,5),
     date(2021,9,6),
     date(2021,11,25),
-    date(2021,12,24)
+    date(2021,12,24),
+    date(2022,1,1),
+    date(2022,1,17),
+    date(2022,2,21),
+    date(2022,4,15),
+    date(2022,5,30),
+    date(2022,6,20),
+    date(2022,7,4),
+    date(2022,9,5),
+    date(2022,11,24),
+    date(2022,12,26)
 ]
 
-def isNoTradingDate(date1): 
-    if date1 in holidays:
-        return True
-    if date1.weekday() == 5 or date1.weekday() == 6: # Saturday or Sunday
-        return True
-    return False
+targetColumns = ['symbol', 'currentTime', 'regularMarketPrice', 'previousClose', 'regularMarketOpen', 'regularMarketDayHigh', 'regularMarketDayLow', 
+                'regularMarketVolume', 'regularMarketChangePercent', 'postMarketChangePercent', 'preMarketChangePercent', 'averageDailyVolume10Day', 
+                'fiftyDayAverage', 'twoHundredDayAverage']
 
-def findStartDateAndEndDate(path, dateRegex=r'\d{8}'):
-    files = os.listdir(path)
-    dates = [getDateFromFileName(f, dateRegex) for f in files]
-    return min(dates), max(dates)
-
-def getDateFromFileName(file, dateRegex=r'\d{8}'):
-    match = re.search(dateRegex, file)
-    if match != None:
-        return match.group()
-    return None
-
-def saveOrAppendCsv(df, csvFile):
-    if os.path.isfile(csvFile):
-        df.to_csv(csvFile, mode='a', header=False, index=False)
-    else:
-        df.to_csv(csvFile, index=False)
+marketOpen = time(9, 45)
+marketClose = time(16, 45)
 
     

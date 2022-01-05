@@ -15,7 +15,9 @@ def untar(fname):
         tar.close()
 
 def archiveFile(file):
-    shutil.move(file, tarArchivePath)
+    if os.path.isfile(file):
+        fileName = os.path.basename(file)
+        shutil.move(file, os.path.join(tarArchivePath, fileName))
 
 def untarQuotes():
     files = os.listdir(tarPath)
